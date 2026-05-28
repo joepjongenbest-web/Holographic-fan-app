@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hologram Fan Controller</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;600;800&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #151b2e;
+            --bg-tertiary: #1f2937;
+            --accent-cyan: #22d3ee;
+            --accent-magenta: #e879f9;
+            --accent-yellow: #fbbf24;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border: #334155;
+            --success: #34d399;
+            --danger: #f87171;
+            --warning: #fbbf24;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #0a0e1a 0%, #1a1f3a 100%);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(34, 211, 238, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(232, 121, 249, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .app-container {
+            position: relative;
+            z-index: 1;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Title Bar */
+        .titlebar {
+            background: rgba(21, 27, 46, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            -webkit-app-region: drag;
+        }
+
+        .titlebar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .app-icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .app-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: -0.5px;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: var(--success);
+        }
+
+        .status-dot.connecting {
+            background: var(--warning);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            gap: 20px;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        /* Panel Styles */
+        .panel {
+            background: rgba(21, 27, 46, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+            opacity: 0.3;
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-primary);
+        }
+
+        .panel-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(180deg, var(--accent-cyan), var(--accent-magenta));
+            border-radius: 2px;
+        }
+
+        /* Sidebar Controls */
+        .control-group {
+            margin-bottom: 24px;
+        }
+
+        .control-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent-cyan);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.primary {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            border: none;
+            color: white;
+            font-weight: 600;
+        }
+
+        button.danger {
+            background: rgba(248, 113, 113, 0.1);
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        button.danger:hover {
+            background: rgba(248, 113, 113, 0.2);
+        }
+
+        /* Slider */
+        .slider-container {
+            margin-top: 8px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+        }
+
+        .slider-value {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* File List */
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .file-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid transparent;
+            border-radius: 10px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .file-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--accent-cyan);
+            transform: translateX(4px);
+        }
+
+        .file-item.active {
+            background: rgba(34, 211, 238, 0.1);
+            border-color: var(--accent-cyan);
+        }
+
+        .file-thumbnail {
+            width: 64px;
+            height: 64px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .file-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .file-thumbnail.loading {
+            background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .file-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .file-name {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-meta {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .icon-btn {
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        /* Console */
+        .console {
+            background: rgba(10, 14, 26, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            overflow-y: auto;
+            max-height: 300px;
+        }
+
+        .console-line {
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .console-line.info { color: var(--accent-cyan); }
+        .console-line.success { color: var(--success); }
+        .console-line.error { color: var(--danger); }
+        .console-line.warning { color: var(--warning); }
+
+        /* Upload Area */
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .upload-area:hover {
+            border-color: var(--accent-cyan);
+            background: rgba(34, 211, 238, 0.05);
+        }
+
+        .upload-area.dragging {
+            border-color: var(--accent-magenta);
+            background: rgba(232, 121, 249, 0.1);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.6;
+        }
+
+        .upload-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .upload-form {
+            margin-top: 20px;
+            display: grid;
+            gap: 12px;
+        }
+
+        input[type="number"],
+        select {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+        }
+
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 12px;
+            display: none;
+        }
+
+        .progress-bar.active {
+            display: block;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .mode-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .mode-selector button {
+            padding: 8px;
+            font-size: 11px;
+        }
+
+        .mode-selector button.active {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            color: white;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            opacity: 0.3;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Title Bar -->
+        <div class="titlebar">
+            <div class="titlebar-left">
+                <div class="app-icon">🌀</div>
+                <span class="app-title">HOLOGRAM FAN CONTROLLER</span>
+            </div>
+            <div class="connection-status">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Disconnected</span>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Sidebar: Controls -->
+            <div class="panel">
+                <div class="panel-title">Power & Playback</div>
+                
+                <div class="control-group">
+                    <div class="control-label">Power</div>
+                    <div class="button-group">
+                        <button onclick="sendCommand('on')">⚡ ON</button>
+                        <button onclick="sendCommand('off')">⏻ OFF</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">Playback</div>
+                    <div class="button-group">
+                        <button onclick="sendCommand('play')">▶️ Play</button>
+                        <button onclick="sendCommand('pause')">⏸️ Pause</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">Navigation</div>
+                    <div class="button-group">
+                        <button onclick="sendCommand('prev')">⏮️ Prev</button>
+                        <button onclick="sendCommand('next')">⏭️ Next</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">Brightness</div>
+                    <div class="slider-container">
+                        <input type="range" id="brightness" min="0" max="15" value="15" 
+                               oninput="updateBrightness(this.value)">
+                        <div class="slider-value">
+                            <span>0</span>
+                            <span id="brightnessValue">15</span>
+                            <span>15</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">Play Mode</div>
+                    <div class="mode-selector">
+                        <button onclick="setMode('seq')" data-mode="seq">Sequential</button>
+                        <button onclick="setMode('single')" data-mode="single">Single</button>
+                        <button onclick="setMode('random')" data-mode="random">Random</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <button class="primary" onclick="reconnect()" style="width: 100%;">🔄 Reconnect</button>
+                </div>
+            </div>
+
+            <!-- Center: File List -->
+            <div class="panel">
+                <div class="panel-title">Media Files</div>
+                <div id="connectionMessage" class="empty-state">
+                    <div class="empty-state-icon">📡</div>
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">Maak eerst verbinding</div>
+                    <div style="font-size: 12px;">Wacht tot de verbinding met het apparaat tot stand is gebracht</div>
+                </div>
+                <div id="fileList" class="file-list" style="display: none;">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📁</div>
+                        <div>No files loaded</div>
+                        <div style="font-size: 11px; margin-top: 8px;">Connect to device to view files</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar: Upload & Console -->
+            <div class="panel">
+                <div class="panel-title">Upload Media</div>
+                
+                <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">📤</div>
+                    <div class="upload-text">
+                        <strong>Click to upload</strong> or drag & drop<br>
+                        <span style="font-size: 11px;">PNG, MP4, or text files</span>
+                    </div>
+                </div>
+                <input type="file" id="fileInput" accept=".png,.jpg,.jpeg,.webp,.mp4,.txt" onchange="handleFileSelect(event)">
+                
+                <div class="upload-form" id="uploadForm" style="display: none;">
+                    <input type="number" id="fileId" placeholder="File ID" value="10">
+                    <select id="fileType">
+                        <option value="1">Photo (PNG/JPG)</option>
+                        <option value="2">Video (MP4)</option>
+                        <option value="3">Text</option>
+                    </select>
+                    <button class="primary" onclick="startUpload()">🚀 Start Upload</button>
+                </div>
+
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+
+                
+                <div style="margin-top: 24px;">
+                    <div class="panel-title" style="margin-bottom: 12px;">Console</div>
+                    <div class="console" id="console">
+                        <div class="console-line info">Waiting for connection...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WebSocket Connection
+        const WS_URL = "ws://192.168.43.1:7110";
+        const DEVICE_ID = "D412432B30EC";
+        const PACK_LEN = 32768;
+
+        let ws = null;
+        let order = 0;
+        let fileList = [];
+        let currentFile = null;
+        let currentPlayingFileId = null; // Track currently playing file for next/prev
+        let uploadFile = null;
+        let thumbnailData = {}; // Store thumbnail URLs by file_id
+        let isConnected = false;
+
+        const nextOrder = () => (order = (order + 1) & 0xff);
+
+        function log(message, type = 'info') {
+            const console = document.getElementById('console');
+            const line = document.createElement('div');
+            line.className = `console-line ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            line.textContent = `[${timestamp}] ${message}`;
+            console.appendChild(line);
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function updateStatus(connected, text) {
+            const dot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            dot.className = 'status-dot';
+            if (connected === true) {
+                dot.classList.add('connected');
+                statusText.textContent = text || 'Connected';
+                isConnected = true;
+                showFileList();
+            } else if (connected === 'connecting') {
+                dot.classList.add('connecting');
+                statusText.textContent = 'Connecting...';
+                isConnected = false;
+            } else {
+                statusText.textContent = 'Disconnected';
+                isConnected = false;
+                showConnectionMessage();
+            }
+        }
+
+        function showConnectionMessage() {
+            document.getElementById('connectionMessage').style.display = 'block';
+            document.getElementById('fileList').style.display = 'none';
+        }
+
+        function showFileList() {
+            document.getElementById('connectionMessage').style.display = 'none';
+            document.getElementById('fileList').style.display = 'flex';
+        }
+
+        function connect() {
+            updateStatus('connecting');
+            log('Connecting to ' + WS_URL, 'info');
+
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                updateStatus(true);
+                log('Connected successfully!', 'success');
+                ws.send('ping');
+                
+                // Request file list
+                setTimeout(() => {
+                    sendJSON(baseMsg(30, { down_thum: 0 }));
+                }, 500);
+                
+                setInterval(() => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send('ping');
+                    }
+                }, 5000);
+            };
+
+            ws.onmessage = (event) => {
+                const data = event.data;
+                
+                // Handle binary data (thumbnails)
+                if (data instanceof Blob) {
+                    data.arrayBuffer().then(buffer => {
+                        handleBinaryMessage(new Uint8Array(buffer));
+                    });
+                    return;
+                }
+                
+                if (typeof data === 'string') {
+                    try {
+                        const json = JSON.parse(data);
+                        handleJsonMessage(json);
+                    } catch (e) {
+                        // Not JSON
+                    }
+                }
+            };
+
+            ws.onclose = () => {
+                updateStatus(false);
+                log('Connection closed', 'warning');
+            };
+
+            ws.onerror = (error) => {
+                log('Connection error', 'error');
+            };
+        }
+
+        function handleBinaryMessage(data) {
+            
+            // Check if this is a FAF0 frame
+            if (data.length >= 4 && data[0] === 0xFA && data[1] === 0xF0) {
+                const kind = data[2] | (data[3] << 8);
+                
+                // Parse FAF0 frame structure
+                if (data.length >= 14) {
+                    const fileId = data[4] | (data[5] << 8) | (data[6] << 16) | (data[7] << 24);
+                    const chunkIndex = data[8] | (data[9] << 8) | (data[10] << 16) | (data[11] << 24);
+                    const payloadLen = data[12] | (data[13] << 8);
+                    
+                    // Voor thumbnails is chunkIndex de echte file ID!
+                    const actualFileId = chunkIndex;
+                
+                    
+                    // Extract payload
+                    let actualPayloadLen = payloadLen;
+                    if (data[data.length - 1] === 0xFE) {
+                        actualPayloadLen = Math.min(payloadLen, data.length - 15);
+                    } else {
+                        actualPayloadLen = Math.min(payloadLen, data.length - 14);
+                    }
+                    
+                    const payload = data.slice(14, 14 + actualPayloadLen);
+                    
+                    if (payload.length === 0) {
+                        log(`⚠️ Lege payload`, 'warning');
+                        return;
+                    }
+                    
+                    // Detect image type
+                    let mimeType = 'image/png';
+                    if (payload[0] === 0xFF && payload[1] === 0xD8) {
+                        mimeType = 'image/jpeg';
+                    } else if (payload[0] === 0x89 && payload[1] === 0x50) {
+                        mimeType = 'image/png';
+                    }
+                    
+                    
+                    // Create blob URL
+                    const blob = new Blob([payload], { type: mimeType });
+                    const url = window.URL.createObjectURL(blob);
+                    
+                    // Clean up old URL
+                    if (thumbnailData[actualFileId]) {
+                        window.URL.revokeObjectURL(thumbnailData[actualFileId]);
+                    }
+
+                    // Store and display thumbnail
+                    thumbnailData[actualFileId] = url;
+                    updateThumbnail(actualFileId, url);
+                } else {
+                    log(`⚠️ FAF0 frame te kort`, 'warning');
+                }
+            } else {
+                log(`⚠️ Geen FAF0 header`, 'warning');
+            }
+        }
+
+        function updateThumbnail(fileId, imageUrl) {
+            // Find the thumbnail element and update it
+            const thumbnailElement = document.querySelector(`[data-file-id="${fileId}"] .file-thumbnail`);
+            if (thumbnailElement) {
+                thumbnailElement.classList.remove('loading');
+                thumbnailElement.innerHTML = `<img src="${imageUrl}" alt="Thumbnail">`;
+            }
+        }
+
+        function handleJsonMessage(json) {
+            // File list
+            if (json.cmd === 30) {
+                const files = json.properties?.file || json.properties?.result?.file || [];
+                updateFileList(files);
+
+                // Request thumbnails
+                if (files.length > 0) {
+                    setTimeout(() => {
+                        sendJSON(baseMsg(30, { down_thum: 1 }));
+                    }, 500);
+                }
+            }
+            
+            // Upload progress
+            if (json.cmd === 27) {
+                const progress = json.properties?.progress || 0;
+                updateProgress(progress);
+                log(`📤 Upload: ${progress}%`, 'info');
+            }
+
+            // Device status
+            if (json.cmd === 26) {
+                // Silent - happens too often
+            }
+            
+            // Other commands
+            if (json.cmd && json.cmd !== 30 && json.cmd !== 27 && json.cmd !== 26) {
+                log(`📨 CMD ${json.cmd}`, 'info');
+            }
+        }
+
+        function fileTypeLabel(t) {
+            const n = Number(t);
+            if (n === 1) return 'Photo';
+            if (n === 2) return 'Video';
+            if (n === 3) return 'Text';
+            return `Unknown(${t})`;
+        }
+
+        function fileTypeIcon(t) {
+            const n = Number(t);
+            if (n === 1) return '🖼️';
+            if (n === 2) return '🎞️';
+            if (n === 3) return '📝';
+            return '❓';
+        }
+
+        function updateFileList(files) {
+            fileList = files;
+            const container = document.getElementById('fileList');
+            container.innerHTML = '';
+
+            if (files.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📁</div>
+                        <div>No files found</div>
+                    </div>
+                `;
+                return;
+            }
+
+            files.forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'file-item';
+                const fileId = Number(file.file_id ?? file.id ?? index);
+                item.setAttribute('data-file-id', String(fileId));
+                const fileName = file.file_name || `File ${fileId}`;
+                const ft = Number(file.file_type);
+                const fileType = fileTypeLabel(ft);
+                const typeIcon = fileTypeIcon(ft);
+
+                // Check if we already have a thumbnail for this file
+                let thumbnailHtml = '';
+                let thumbnailClass = 'file-thumbnail';
+                const hasThumbnail = thumbnailData[fileId];
+                
+                if (hasThumbnail) {
+                    // Show the actual thumbnail image
+                    thumbnailHtml = `<img src="${thumbnailData[fileId]}" alt="Thumbnail">`;
+                } else {
+                    // For photo/video: show loading state without icon
+                    // For text files: show text icon
+                    if (ft === 1 || ft === 2) {
+                        thumbnailClass += ' loading';
+                        thumbnailHtml = ''; // Empty while loading
+                    } else {
+                        thumbnailHtml = `${typeIcon}`;
+                    }
+                }
+                
+                item.innerHTML = `
+                    <div class="${thumbnailClass}">
+                        ${thumbnailHtml}
+                    </div>
+                    <div class="file-info">
+                        <div class="file-name">${fileName}</div>
+                        <div class="file-meta">ID: ${fileId} • Type: ${fileType}</div>
+                    </div>
+                    <div class="file-actions">
+                        <button class="icon-btn" onclick="playFile(${fileId})" title="Play">▶️</button>
+                        <button class="icon-btn danger" onclick="deleteFile(${fileId})" title="Delete">🗑️</button>
+                    </div>
+                `;
+                
+                container.appendChild(item);
+            });
+        }
+
+        function sendJSON(obj) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Not connected!', 'error');
+                return;
+            }
+            ws.send(JSON.stringify(obj));
+        }
+
+        function baseMsg(cmd, properties) {
+            return {
+                cmd,
+                source: 0,
+                destination: 0,
+                order: nextOrder(),
+                pack_order: 1,
+                pack_count: 1,
+                version_code: 1,
+                properties: { type: cmd === 67 ? 0 : 1, id: DEVICE_ID, ...properties }
+            };
+        }
+
+        function sendCommand(cmd) {
+            const commands = {
+                'on': { cmd: 46, properties: { value: 1 } },
+                'off': { cmd: 46, properties: { value: 0 } },
+                'play': { cmd: 46, properties: { value: 3 } },
+                'pause': { cmd: 46, properties: { value: 5 } },
+                'next': { func: 'nextFile' },
+                'prev': { func: 'prevFile' }
+            };
+
+            if (commands[cmd]) {
+                if (commands[cmd].func) {
+                    window[commands[cmd].func]();
+                } else {
+                    sendJSON(baseMsg(commands[cmd].cmd, commands[cmd].properties));
+                    log(`Sent: ${cmd} (cmd=${commands[cmd].cmd}, properties=${JSON.stringify(commands[cmd].properties)})`, 'info');
+                }
+            }
+        }
+
+        function nextFile() {
+            if (!fileList || fileList.length === 0) {
+                log('No files available to skip', 'warning');
+                return;
+            }
+
+            let nextIndex = 0;
+            if (currentPlayingFileId !== null) {
+                const currentIndex = fileList.findIndex(f => Number(f.file_id ?? f.id) === currentPlayingFileId);
+                if (currentIndex !== -1 && currentIndex < fileList.length - 1) {
+                    nextIndex = currentIndex + 1;
+                } else {
+                    nextIndex = 0; // Loop back to start
+                }
+            }
+
+            const nextFileId = Number(fileList[nextIndex].file_id ?? fileList[nextIndex].id);
+            currentPlayingFileId = nextFileId;
+            log(`Playing next file: ${fileList[nextIndex].file_name || nextFileId}`, 'info');
+            playFile(nextFileId);
+        }
+
+        function prevFile() {
+            if (!fileList || fileList.length === 0) {
+                log('No files available to skip back', 'warning');
+                return;
+            }
+
+            let prevIndex = fileList.length - 1;
+            if (currentPlayingFileId !== null) {
+                const currentIndex = fileList.findIndex(f => Number(f.file_id ?? f.id) === currentPlayingFileId);
+                if (currentIndex > 0) {
+                    prevIndex = currentIndex - 1;
+                } else {
+                    prevIndex = fileList.length - 1; // Loop to end
+                }
+            }
+
+            const prevFileId = Number(fileList[prevIndex].file_id ?? fileList[prevIndex].id);
+            currentPlayingFileId = prevFileId;
+            log(`Playing previous file: ${fileList[prevIndex].file_name || prevFileId}`, 'info');
+            playFile(prevFileId);
+        }
+
+        function updateBrightness(value) {
+            document.getElementById('brightnessValue').textContent = value;
+            sendJSON(baseMsg(46, { value: 7, brightness_value: parseInt(value) }));
+            log(`Brightness: ${value}`, 'info');
+        }
+
+        function setMode(mode) {
+            const modes = { 'seq': 1, 'single': 2, 'random': 3 };
+            const playMode = modes[mode];
+            
+            document.querySelectorAll('.mode-selector button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+            
+            sendJSON(baseMsg(46, { value: 33, play_mode: playMode }));
+            log(`Play mode: ${mode}`, 'info');
+        }
+
+        function playFile(fileId) {
+            currentPlayingFileId = fileId;
+            sendJSON(baseMsg(46, { value: 6, file_id: fileId, brightness_value: 1, adjustment_value: 0 }));
+            sendJSON(baseMsg(46, { value: 3 }));
+            log(`Playing file ${fileId}`, 'success');
+        }
+
+        function deleteFile(fileId) {
+            if (!confirm(`Delete file ${fileId}?`)) return;
+            
+            sendJSON(baseMsg(67, { file_id: fileId }));
+            log(`Deleting file ${fileId}`, 'warning');
+            
+            // Clean up thumbnail
+            if (thumbnailData[fileId]) {
+                window.URL.revokeObjectURL(thumbnailData[fileId]);
+                delete thumbnailData[fileId];
+            }
+            
+            setTimeout(() => {
+                sendJSON(baseMsg(30, { down_thum: 0 }));
+            }, 1000);
+        }
+
+        function reconnect() {
+            log('Reconnecting...', 'info');
+            if (ws) {
+                ws.close();
+            }
+            setTimeout(() => connect(), 500);
+        }
+
+        // Upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragging');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragging');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragging');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            uploadFile = file;
+            document.getElementById('uploadForm').style.display = 'grid';
+            
+            // Auto-detect file type
+            const ext = file.name.split('.').pop().toLowerCase();
+
+            let t = 1; // default photo
+            if (ext === 'txt') t = 3;
+            else if (ext === 'mp4') t = 2;
+            else if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) t = 1;
+
+            document.getElementById('fileType').value = String(t);
+            
+            log(`File selected: ${file.name} (${file.size} bytes)`, 'info');
+        }
+
+        async function startUpload() {
+            if (!uploadFile) return;
+            
+            const fileId = parseInt(document.getElementById('fileId').value);
+            const fileType = parseInt(document.getElementById('fileType').value);
+            
+            log(`Starting upload: ${uploadFile.name}`, 'info');
+            
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const data = new Uint8Array(e.target.result);
+                await performUpload(data, fileId, fileType);
+            };
+            reader.readAsArrayBuffer(uploadFile);
+        }
+
+        async function performUpload(data, fileId, fileType) {
+            const packCount = Math.ceil(data.length / PACK_LEN);
+            
+            // Send config (cmd:66)
+            const cfg = {
+                cmd: 66,
+                source: 0,
+                destination: 0,
+                order: nextOrder(),
+                pack_order: 1,
+                pack_count: packCount,
+                version_code: 1,
+                properties: {
+                    type: 0,
+                    id: DEVICE_ID,
+                    file_type: fileType,
+                    file_id: fileId,
+                    play_count: 1,
+                    play_order: 1,
+                    residencetime: 1,
+                    display_mode: 0,
+                    file_name: Date.now().toString(),
+                    pack_number: 0
+                }
+            };
+            
+            ws.send(JSON.stringify(cfg));
+            await sleep(250);
+            
+            // Send chunks
+            updateProgress(0);
+            document.getElementById('progressBar').classList.add('active');
+            
+            for (let i = 0; i < packCount; i++) {
+                const start = i * PACK_LEN;
+                const end = Math.min(data.length, start + PACK_LEN);
+                const chunk = data.slice(start, end);
+                
+                const frame = makeUploadFrame(chunk, i, packCount);
+                ws.send(frame);
+                
+                const progress = Math.floor(((i + 1) / packCount) * 100);
+                updateProgress(progress);
+                
+                await sleep(5);
+            }
+            
+            log('Upload complete!', 'success');
+            setTimeout(() => {
+                document.getElementById('progressBar').classList.remove('active');
+                sendJSON(baseMsg(30, { down_thum: 0 }));
+            }, 1000);
+        }
+
+        function makeUploadFrame(payloadBuf, packIndex, packCount) {
+            const isLast = packIndex === packCount - 1;
+            const totalLen = 15 + payloadBuf.length;
+            const buffer = new ArrayBuffer(totalLen);
+            const view = new DataView(buffer);
+            const uint8 = new Uint8Array(buffer);
+            
+            let offset = 0;
+            view.setUint8(offset++, 0xFA);
+            view.setUint8(offset++, 0xF0);
+            view.setUint8(offset++, 0x42);
+            view.setUint8(offset++, 0x00);
+            view.setUint32(offset, packCount, true); offset += 4;
+            view.setUint32(offset, packIndex, true); offset += 4;
+            view.setUint16(offset, isLast ? payloadBuf.length : 0x8000, true); offset += 2;
+            
+            uint8.set(payloadBuf, offset);
+            offset += payloadBuf.length;
+            view.setUint8(offset++, 0xFE);
+            
+            return buffer;
+        }
+
+        function updateProgress(percent) {
+            document.getElementById('progressFill').style.width = percent + '%';
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Auto-connect on load
+        setTimeout(() => connect(), 500);
+    </script>
+</body>
+</html>
